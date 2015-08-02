@@ -4,85 +4,163 @@ from django.test.client import Client
 import json
 
 from models import *
+from views import *
 
-def responseCheck(testcase,response,status_code,result):
-    testcase.assertEqual(status_code,response.status_code)
-    if(result!=None):
-        resultin=json.loads(response.content)
-        testcase.assertEqual(resultin["result"],result)
-
-def getTestNoCredential(testcase,a,b,c,status_code,result):
-    cli = Client()
-    response = cli.get('/nocredential/get/?a='+str(a)+'&b='+str(b)+'&c='+str(c))
-    responseCheck(testcase,response,status_code,result)
-
-def postTestNoCredential(testcase,a,b,c,status_code,result):
-    cli = Client()
-    response = cli.post('/nocredential/post/',{"a":a,"b":b,"c":c})
-    responseCheck(testcase,response,status_code,result)
-
-def urlTestNoCredential(testcase,a,b,c,status_code,result):
-    cli = Client()
-    tempP='/nocredential/url/'+str(a)+'/'+str(b)+'/'+str(c)+'/'
-    response = cli.get(tempP)
-    responseCheck(testcase,response,status_code,result)
-
-class NoCredentialTestCase(TestCase):
-    urls = 'webapi_sample.urls'
-
-    def test_dataFromGET(self):
-        getTestNoCredential(self,1,2,3,200,6)
-        getTestNoCredential(self,1,2.2,3,200,6.2)
-        getTestNoCredential(self,"a",2,3,500,"")
-
-    def test_dataFromPOST(self):
-        postTestNoCredential(self,1,2,3,200,6)
-        postTestNoCredential(self,1,2.2,3,200,6.2)
-        postTestNoCredential(self,"a",2,3,500,"")
-
-    def test_dataFromURL(self):
-        urlTestNoCredential(self,1,2,3,200,6)
-        urlTestNoCredential(self,1,2.2,3,404,None)
-        urlTestNoCredential(self,"a",2,3,404,None)
-
-
-def getTestWithCredential(testcase,credential,a,b,c,status_code,result):
-    cli = Client()
-    response = cli.get('/withcredential/'+str(credential)+'/get/?a='+str(a)+'&b='+str(b)+'&c='+str(c))
-    responseCheck(testcase,response,status_code,result)
-
-def postTestWithCredential(testcase,credential,a,b,c,status_code,result):
-    cli = Client()
-    response = cli.post('/withcredential/'+str(credential)+'/post/',{"a":a,"b":b,"c":c})
-    responseCheck(testcase,response,status_code,result)
-
-def urlTestWithCredential(testcase,credential,a,b,c,status_code,result):
-    cli = Client()
-    response = cli.get('/withcredential/'+str(credential)+'/url/a'+str(a)+'/b'+str(b)+'/c'+str(c)+'/')
-    responseCheck(testcase,response,status_code,result)
-
-class WithCredentialTestCase(TestCase):
-    urls = 'webapi_sample.urls'
+class CredentialModelTest(TestCase):
 
     def setUp(self):
-        user=User.objects.create(username="test")
-        Credential.objects.create(user=user, credential="testcred")
+        self.user=User.objects.create(username="test")
+        self.user.save()
 
-    def test_dataFromGET(self):
-        getTestWithCredential(self,"testcred",1,2,3,200,6)
-        getTestWithCredential(self,"testcred",1,2.2,3,200,6.2)
-        getTestWithCredential(self,"testcred","a",2,3,500,"")
-        getTestWithCredential(self,"nocred",1,2,3,500,None)
+    def test_1create(self):
+        cred=Credential.createCred(user=self.user, id="test_api",secret="testcred")
+        self.assertTrue(cred!=None)
 
-    def test_dataFromPOST(self):
-        postTestWithCredential(self,"testcred",1,2,3,200,6)
-        postTestWithCredential(self,"testcred",1,2.2,3,200,6.2)
-        postTestWithCredential(self,"testcred","a",2,3,500,"")
-        postTestWithCredential(self,"nocred",1,2,3,500,None)
+        randSecret=Credential.generateSecret()
+        cred3=Credential.createCred(user=self.user, id="test_api3",secret=randSecret)
+        cred4=Credential.createCred(user=self.user, id="test_api3",secret=randSecret)
+        self.assertTrue(cred3!=None)
+        self.assertTrue(cred4==None)
 
-    def test_dataFromURL(self):
-        urlTestWithCredential(self,"testcred",1,2,3,200,6)
-        urlTestWithCredential(self,"testcred",1,2.2,3,404,None)
-        urlTestWithCredential(self,"testcred","a",2,3,404,None)
-        urlTestWithCredential(self,"nocred",1,2,3,500,None)
+        randID=Credential.generateID()
+        cred5=Credential.createCred(user=self.user, id=randID,secret=randSecret)
+        self.assertTrue(cred5!=None)
 
+        user2=User.objects.create(username="test2")
+        user2.save()
+        cred6=Credential.createCred(user=user2, id="test_api",secret="testcred")
+        self.assertEqual(cred6,None)
+
+        cred7=Credential.createCred(user=user2, id="test_api4",secret="")
+        self.assertEqual(cred7,None)
+
+        cred8=Credential.createCred(user=user2, id="",secret="aaa")
+        self.assertEqual(cred8,None)
+
+        cred9=Credential.createCred(user=user2, id="test_api4",secret=None)
+        self.assertEqual(cred9,None)
+
+        cred10=Credential.createCred(user=user2, id=None,secret="aaa")
+        self.assertEqual(cred10,None)
+
+    def test_2auth(self):
+        cred=Credential.createCred(user=self.user, id="test_api",secret="testcred")
+        testCred=Credential.auth(id="test_api",secret="testcred")
+        self.assertEqual(testCred,cred)
+        self.assertEqual(testCred.user,self.user)
+        self.assertTrue(testCred.hashed!="testcred")
+        self.assertEqual(len(testCred.hashed),60)
+        self.assertTrue(testCred.checkauth("testcred"))
+        self.assertTrue(testCred.checkauth("testcred2")==False)
+
+        cred2=Credential.createCred(user=self.user, id="test_api2",secret="testcred2")
+        testCred2=Credential.auth(id="test_api2",secret="testcred2")
+        self.assertEqual(testCred2,cred2)
+
+        randSecret=Credential.generateSecret()
+        cred3=Credential.createCred(user=self.user, id="test_api3",secret=randSecret)
+        testCred3=Credential.auth(id="test_api3",secret=randSecret)
+        self.assertEqual(testCred3,cred3)
+
+class DummyRequest:
+    def __init__(self):
+        self.GET={}
+        self.POST={}
+
+class ViewTest(TestCase):
+
+    def setUp(self):
+        self.user=User.objects.create(username="test")
+        self.user.save()
+        self.cred=Credential.createCred(user=self.user, id="test_api",secret="testcred")
+
+    def test_1base(self):
+        response=calcAndReturnHTTPbyJSON(1,2,3)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],6)
+
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        a,b,c=getABC(request)
+        self.assertEqual(a,1)
+        self.assertEqual(b,2)
+        self.assertEqual(c,3)
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        a2,b2,c2=postABC(request)
+        self.assertEqual(a2,1)
+        self.assertEqual(b2,2)
+        self.assertEqual(c2,3)
+
+    def test_2no_cred(self):
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        response=dataFromGETwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],6)
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        response=dataFromGETwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        response=dataFromGETwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        response=dataFromPOSTwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],6)
+
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        response=dataFromPOSTwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        response=dataFromPOSTwithNoCredentialReturnJSON(request)
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+    def test_3cred(self):
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        response=dataFromGETwithCredentialReturnJSON(request,"test_api","testcred")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],6)
+
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        response=dataFromGETwithCredentialReturnJSON(request,"test_api","testcred2")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        request.GET={"a":1,"b":2,"c":3}
+        response=dataFromGETwithCredentialReturnJSON(request,"test_api2","testcred")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        response=dataFromPOSTwithCredentialReturnJSON(request,"test_api","testcred")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],6)
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        response=dataFromPOSTwithCredentialReturnJSON(request,"test_api","testcred2")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")
+
+        request=DummyRequest()
+        request.POST={"a":1,"b":2,"c":3}
+        response=dataFromPOSTwithCredentialReturnJSON(request,"test_api2","testcred")
+        resultin=json.loads(response.content)
+        self.assertEqual(resultin["result"],"")

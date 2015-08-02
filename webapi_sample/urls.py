@@ -9,10 +9,7 @@ urlpatterns = patterns("",
     url(r"^nocredential/post/$", dataFromPOSTwithNoCredentialReturnJSON),
     url(r"^nocredential/url/(?P<a>\d+)/(?P<b>\d+)/(?P<c>\d+)/$", dataFromURLwithNoCredentialReturnJSON),
 
-    url(r"^withcredential/(?P<credential>\w+)/get/$", dataFromGETwithCredentialReturnJSON),
-    url(r"^withcredential/(?P<credential>\w+)/post/$", dataFromPOSTwithCredentialReturnJSON),
-    url(r"^withcredential/(?P<credential>\w+)/url/a(?P<a>\d+)/b(?P<b>\d+)/c(?P<c>\d+)/$", dataFromURLwithCredentialReturnJSON),
+    url(r"^withcredential/(?P<id>\w+)/(?P<credential>\w+)/get/$", dataFromGETwithCredentialReturnJSON),
+    url(r"^withcredential/(?P<id>\w+)/(?P<credential>\w+)/post/$", dataFromPOSTwithCredentialReturnJSON),
+    url(r"^withcredential/(?P<id>\w+)/(?P<credential>\w+)/url/a(?P<a>\d+)/b(?P<b>\d+)/c(?P<c>\d+)/$", dataFromURLwithCredentialReturnJSON),
 )
-
-
-

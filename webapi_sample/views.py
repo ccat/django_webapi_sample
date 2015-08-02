@@ -52,41 +52,29 @@ def dataFromURLwithNoCredentialReturnJSON(request,a,b,c):
 
 
 
-def checkCredential(credential):
-    """ If credential is wrong, raise an error.
-    When credential is correct, do nothing.
-    """
-    cred=Credential.objects.get(credential=credential)
-
-def dataFromGETwithCredentialReturnJSON(request,credential):
-    try:
-        checkCredential(credential)
+def dataFromGETwithCredentialReturnJSON(request,id,credential):
+    target=Credential.auth(id,credential)
+    if(target):
         (a,b,c)=getABC(request)
         return calcAndReturnHTTPbyJSON(a,b,c)
-    except:
-        return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
+    return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
 
 @csrf_exempt
-def dataFromPOSTwithCredentialReturnJSON(request,credential):
+def dataFromPOSTwithCredentialReturnJSON(request,id,credential):
     """ Django has an authentication system, however webapi will be called by
     server, so using cookie is not convenient, and we need to consider about csrf.
     This kind of "key" system is easy to use, however if you want more, please use
     oauth or something.
     """
-    try:
-        checkCredential(credential)
+    target=Credential.auth(id,credential)
+    if(target):
         (a,b,c)=postABC(request)
         result=a+b+c
         return calcAndReturnHTTPbyJSON(a,b,c)
-    except:
-        return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
+    return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
 
-def dataFromURLwithCredentialReturnJSON(request,credential,a,b,c):
-    try:
-        checkCredential(credential)
+def dataFromURLwithCredentialReturnJSON(request,id,credential,a,b,c):
+    target=Credential.auth(id,credential)
+    if(target):
         return calcAndReturnHTTPbyJSON(int(a),int(b),int(c))
-    except:
-        return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
-
-
-
+    return HttpResponseServerError(json.dumps({"error":"Something wrong","result":""}))
